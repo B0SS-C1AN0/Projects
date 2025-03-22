@@ -1,0 +1,367 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7fc;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 50px;
+            color: #2c3e50;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-spacing: 10px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #2c3e50;
+            color: white;
+            width: 200px;
+        }
+
+        td {
+            background-color: #ecf0f1;
+        }
+
+        input[type="text"], input[type="number"], input[type="button"], input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: #fff;
+        }
+
+        input[type="button"], button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 4px;
+            width: auto;
+            display: inline-block;
+        }
+
+        input[type="button"]:hover, button:hover {
+            background-color: #2980b9;
+        }
+
+        .output {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .results {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .canvas-container {
+            text-align: center;
+        }
+
+        .lenders {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .lender {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .lender:hover {
+            background-color: #2980b9;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+            }
+
+            table {
+                font-size: 14px;
+            }
+
+            input[type="text"], input[type="number"], input[type="button"], button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Loan Calculator</h1>
+    <div class="container">
+        <table>
+            <tr>
+                <th>Enter Loan Data</th>
+                <td></td>
+                <th>Loan Balance, Cumulative Equity, and Interest</th>
+            </tr>
+            <tr>
+                <td>Amount of Loan (N): </td>
+                <td><input id="amount" onchange="calculate()" type="text" placeholder="Enter loan amount"></td>
+                <td rowspan="8" class="canvas-container">
+                    <canvas id="graph" width="400" height="250"></canvas>
+                </td>
+            </tr>
+            <tr>
+                <td>Annual Interest (%):</td>
+                <td><input id="apr" onchange="calculate()" type="text" placeholder="Enter interest rate"></td>
+            </tr>
+            <tr>
+                <td>Repayment Period (years):</td>
+                <td><input id="years" onchange="calculate()" type="text" placeholder="Enter number of years"></td>
+            </tr>
+            <tr>
+                <td>ZipCode (to find lenders):</td>
+                <td><input id="zipcode" onchange="calculate()" type="text" placeholder="Enter your zip code"></td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center;">
+                    <button onclick="calculate()">Calculate</button>
+                </td>
+            </tr>
+            <tr>
+                <td>Monthly Payment:</td>
+                <td>N <span class="output" id="Payment"></span></td>
+            </tr>
+            <tr>
+                <td>Total Interest:</td>
+                <td>N <span class="output" id="totalInterest"></span></td>
+            </tr>
+            <tr>
+                <td>Sponsors:</td>
+                <td colspan="2">
+                    <div class="lenders" id="lenders"></div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        // JavaScript code to handle loan calculations and dynamic content
+        function calculate() {
+            var amount = document.getElementById("amount");
+            var apr = document.getElementById("apr");
+            var years = document.getElementById("years");
+            var zipcode = document.getElementById("zipcode");
+            var Payment = document.getElementById("Payment");
+            var totalInterest = document.getElementById("totalInterest");
+            var lenders = document.getElementById("lenders");
+
+            var principal = parseFloat(amount.value);
+            var interest = parseFloat(apr.value) / 100 / 12;
+            var payments = parseFloat(years.value) * 12;
+
+            var x = Math.pow(1 + interest, payments);
+            var monthly = (principal * x * interest) / (x - 1);
+
+            if (isFinite(monthly)) {
+                Payment.innerHTML = monthly.toFixed(2);
+                totalInterest.innerHTML = ((monthly * payments) - principal).toFixed(2);
+
+                save(amount.value, apr.value, years.value, zipcode.value);
+                try {
+                    getLenders(zipcode.value);
+                } catch (e) {
+                    console.log("Invalid input");
+                }
+                chart(principal, interest, monthly, payments);
+            } else {
+                Payment.innerHTML = "";
+                totalInterest.innerHTML = "";
+                chart();
+            }
+        }
+
+        function save(amount, apr, years, zipcode) {
+            if (window.localStorage) {
+                localStorage.loan_amount = amount;
+                localStorage.loan_apr = apr;
+                localStorage.loan_years = years;
+                localStorage.loan_zipcode = zipcode;
+            }
+        }
+
+        function getLenders(zipcode) {
+            var lenders = document.getElementById("lenders");
+            lenders.innerHTML = ''; // Clear previous results
+
+            var sampleLenders = ["Lender 1", "Lender 2", "Lender 3"];
+            sampleLenders.forEach(function(lender) {
+                var lenderElement = document.createElement("div");
+                lenderElement.classList.add("lender");
+                lenderElement.textContent = lender;
+                lenders.appendChild(lenderElement);
+            });
+        }
+
+        function chart(principal, interest, monthly, payments) {
+            var graph = document.getElementById("graph");
+            var ctx = graph.getContext("2d");
+
+            // Clear the graph before drawing new data
+            ctx.clearRect(0, 0, graph.width, graph.height);
+
+            // Simple bar chart for illustration (not real data)
+            ctx.fillStyle = "#3498db";
+            ctx.fillRect(50, 100, 300, 50); // Draw a simple bar
+            ctx.fillStyle = "#2c3e50";
+            ctx.font = "16px Arial";
+            ctx.fillText("Loan Balance", 150, 130);
+        }
+
+        // Automatically restore input fields when the page loads
+        window.onload = function() {
+            if (window.localStorage && localStorage.loan_amount) {
+                document.getElementById("amount").value = localStorage.loan_amount;
+                document.getElementById("apr").value = localStorage.loan_apr;
+                document.getElementById("years").value = localStorage.loan_years;
+                document.getElementById("zipcode").value = localStorage.loan_zipcode;
+            }
+        };
+    </scr>
+</body>
+</html>
+
+
+
+
+/*
+* This script
+
+*/
+function calculate() {
+    //look for the input and output elements in the elements in the document
+    var amount = document.getElementById("amount");
+    var graph = document.getElementById("graph");
+    var apr = document.getElementById("apr");
+    var years = document.getElementById("years");
+    var zipcode = document.getElementById("zipcode");
+    var Payment = document.getElementById("Payment");
+    var totalInterest = document.getElementById("totalInterest");
+    var lenders = document.getElementById("lenders");
+
+    // Get the user's input from the input elements .Assuming 
+    // They are all valid. convert interest from percent to a decimal
+    // convert4
+    var principal = parseFloat(amount.value);
+    var interest = parseFloat(apr.value) / 100 / 12 ;
+    var payment = parseFloat(years.value) * 12;
+
+    //compute the monthly payment figure
+    var x = Math.pow(1 + interest,payment);
+    var monthly = (principal *x* interest)/(x - 1);
+    //Before displaying the output,we first check if the
+    //result is a finite value. if it is ,the user's input
+    // was good and we have a meaningful results to display
+
+    if (isFinite(monthly)) {
+        //fill in the output fields,rounding to 2 decimal places
+        payment.innerHTML = monthly.toFixed(2);
+        total.innerHTML = (monthly * payments).toFixed(2);
+        totalInterest.innerHTML = ((monthly * payments) - principal).toFixed(2);
+        //save the user's input so we can restore it the next time
+        //they visit
+        save(amount.value,apr.value,years.value,zipcode.value);
+
+        try {
+            getLenders(amount.value,apr.value,years.value,zipcode.value);
+         
+        } catch (e) {
+            prompt("invalid INPUT");
+        }
+        chart(principal,interest,monthly,payments);
+    }
+    else
+    {
+    //Result ws Not-a-Number or infinite,which means that
+    // the input was incomplete or invalid.
+    //in this case,we clear any previous input
+    payment.innerHTML="";
+    total.innerHTML = "";
+    totalInterest.innerHTML = "";
+    chart();
+    }
+}
+//save the user's input as properties of the localStorage object
+//Those properties will still be there when the user visits in the future,This
+
+function save(amount,apr,years,zipcode){
+    if (window.localStorage) {
+        localStorage.loan_amount = amount;
+        localStorage.loan_apr = apr;
+        localStorage.loan_years = years;
+        localStorage.loan_zipcode = zipcode;
+        
+    }
+    //Automatically attempt to restore input fields when the 
+    // document first loads.
+
+    window.onload = function() {
+        if (window.localStorage && localStorage.loan_amount)
+        {document.getElementById("amount").value = localStorage.loan_amount;
+        document.getElementById("apr").value = localStorage.loan_apr;  
+        document.getElementById("years").value = localStorage.loan_years;
+        document.getElementById("zipcode").value = localStorage.loan_zipcode;
+        }
+    }
+};
+
+function getLenders(amount,apr,years,zipcode) {
+    if(!window.XMLHttpRequest)
+    return;
+var ad = document.getElementById("lenders");
+if(!ad)return;
+}
+function chart(principal,interest,monthly,payment) {
+    var graph = document.getElementById("graph");
+    graph.width = graph.width;
+    
+}
+if(arguments.length == 0 || !graph.getContext)
+return;
+//Get the context object object for the <canvas> that defines
+// the API
+
+}
+    </script>
+</body>
+</html>
