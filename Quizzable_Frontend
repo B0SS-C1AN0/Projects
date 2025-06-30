@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quiz App with Dark Mode & Animations</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  /* Ensure smooth opacity transition */
+  .transition-opacity {
+    transition-property: opacity;
+  }
+  /* Utility to reset opacity */
+  .opacity-0 { opacity: 0; }
+  .opacity-100 { opacity: 1; }
+</style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col items-center p-6">
+
+<!-- Dark mode toggle -->
+<button id="darkToggle" aria-label="Toggle dark mode" 
+  class="fixed top-4 right-4 p-2 bg-gray-300 dark:bg-gray-700 rounded shadow-md focus:outline-none transition-colors duration-300 hover:bg-gray-400 dark:hover:bg-gray-600">
+  🌙
+</button>
+
+<!-- Auth Container -->
+<div id="auth-container" class="max-w-md w-full bg-white dark:bg-gray-800 p-6 rounded shadow-md">
+  <h1 class="text-2xl font-bold mb-4 text-center">Quiz App Login / Signup</h1>
+  <p id="authMessage" class="mb-4 text-center"></p>
+  <input id="username" placeholder="Username" type="text" autocomplete="username" required
+    class="w-full p-3 mb-3 rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-300" />
+  <input id="password" placeholder="Password" type="password" autocomplete="current-password" required
+    class="w-full p-3 mb-4 rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-300" />
+  <div class="flex space-x-4">
+    <button id="loginBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 text-white py-3 rounded transition duration-300">Login</button>
+    <button id="signupBtn" class="flex-1 bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 text-white py-3 rounded transition duration-300">Signup</button>
+  </div>
+</div>
+
+<!-- Quiz Container -->
+<div id="quiz-container" class="max-w-md w-full bg-white dark:bg-gray-800 p-6 rounded shadow-md mt-8 hidden flex flex-col">
+  <div class="flex justify-between items-center mb-4">
+    <h2 id="question" class="text-xl font-semibold opacity-0 transition-opacity duration-700"></h2>
+    <div id="score" class="font-bold text-blue-600 dark:text-blue-400 select-none"></div>
+  </div>
+  <div id="answers" class="space-y-2 mb-6"></div>
+  <button id="nextBtn" class="bg-blue-600 text-white py-3 rounded opacity-0 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-opacity duration-500 hidden">Next</button>
+  <button id="logoutBtn" class="mt-6 bg-red-600 hover:bg-red-700 text-white py-2 rounded focus:outline-none focus:ring-4 focus:ring-red-300 transition duration-300">Logout</button>
+</div>
+
+<script>
+  const apiBase = "/api"; // update with your backend URL
+
+  // Elements
+  const authContainer = document.getElementById("auth-container");
+  const quizContainer = document.getElementById("quiz-container");
+  const usernameInput = document.getElementById("username");
+  const passwordInput = document.getElementById("password");
+  const authMessage = document.getElementById("authMessage");
+  const loginBtn = document.getElementById("loginBtn");
+  const signupBtn = document.getElementById("signupBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const questionEl = document.getElementById("question");
+  const answersEl = document.getElementById("answers");
+  const nextBtn = document.getElementById("nextBtn");
+  const scoreEl = document.getElementById("score");
+  const darkToggle = document.getElementById("darkToggle");
+
+  let token = null;
+  let questions = [];
+  let currentIndex = 0;
+  let score = 0;
+
+  // Dark Mode Logic
+  function setDarkMode(enabled) {
+    if (enabled) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("darkMode", "enabled");
+      darkToggle.textContent = "☀️";
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("darkMode", "disabled");
+      darkToggle.textContent = "🌙";
+    }
+  }
+
+  if (localStorage.getItem("darkMode") === "enabled") {
+    setDarkMode(true);
+  } else {
+    setDarkMode(false);
+  }
+
+  darkToggle.addEventListener("click", () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    setDarkMode(!isDark);
+  });
+
+  // Auth handlers
+  loginBtn.addEventListener("click", async () => {
+    authMessage.textContent = "";
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!username || !password) {
+      authMessage.style.color = "red";
+      authMessage.textContent = "Please enter username and password.";
+      return;
+    }
+    try {
+      const res = await fetch(apiBase + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        token = data.token;
+        localStorage.setItem("token", token);
+        afterLogin();
+      } else {
+        authMessage.style.color = "red";
+        authMessage.textContent = data.error || "Login failed";
+      }
+    } catch {
+      authMessage.style.color = "red";
+      authMessage.textContent = "Network error";
+    }
+  });
+
+  signupBtn.addEventListener("click", async () => {
+    authMessage.textContent = "";
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!username || !password) {
+      authMessage.style.color = "red";
+      authMessage.textContent = "Please enter username and password.";
+      return;
+    }
+    try {
+      const res = await fetch(apiBase + "/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        authMessage.style.color = "green";
+        authMessage.textContent = "Signup success! Please login.";
+      } else {
+        authMessage.style.color = "red";
+        authMessage.textContent = data.error || "Signup failed";
+      }
+    } catch {
+      authMessage.style.color = "red";
+      authMessage.textContent = "Network error";
+    }
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    token = null;
+    localStorage.removeItem("token");
+    showAuth();
+  });
+
+  nextBtn.addEventListener("click", () => {
+    currentIndex++;
+    if (currentIndex < questions.length) {
+      loadQuestion();
+    } else {
+      endQuiz();
+    }
+  });
+
+  function showAuth() {
+    authContainer.classList.remove("hidden");
+    quizContainer.classList.add("hidden");
+    authMessage.style.color = "red";
+    authMessage.textContent = "";
+    usernameInput.value = "";
+    passwordInput.value = "";
+    questionEl.classList.add("opacity-0");
+    nextBtn.classList.add("hidden");
+    scoreEl.textContent = "";
+  }
+
+  async function showQuiz() {
+    authContainer.classList.add("hidden");
+    quizContainer.classList.remove("hidden");
+    score = 0;
+    currentIndex = 0;
+    updateScore();
+
+    nextBtn.classList.add("hidden");
+    questionEl.classList.add("opacity-0");
+
+    try {
+      const res = await fetch(apiBase + "/quiz/questions", {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok) throw new Error("Unauthorized");
+      questions = await res.json();
+      loadQuestion();
+    } catch {
+      alert("Failed to load questions. Please login again.");
+      logoutBtn.click();
+    }
+  }
+
+  function loadQuestion() {
+    nextBtn.classList.add("hidden");
+    scoreEl.textContent = `Score: ${score}`;
+
+    const q = questions[currentIndex];
+
+    // Fade out question text
+    questionEl.classList.remove("opacity-100");
+    questionEl.classList.add("opacity-0");
+
+    setTimeout(() => {
+      questionEl.textContent = q.question;
+      questionEl.classList.remove("opacity-0");
+      questionEl.classList.add("transition-opacity", "duration-700", "opacity-100");
+    }, 150);
+
+    answersEl.innerHTML = "";
+    q.answers.forEach((a, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = a;
+      btn.className =
+        "block w-full text-left p-2 rounded border border-gray-300 dark:border-gray-600 " +
+        "hover:bg-blue-500 hover:text-white dark:hover:bg-blue-600 transition duration-300 ease-in-out " +
+        "focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2";
+      btn.onclick = () => selectAnswer(i);
+      answersEl.appendChild(btn);
+    });
+  }
+
+  function selectAnswer(selectedIndex) {
+    const q = questions[currentIndex];
+    const buttons = answersEl.querySelectorAll("button");
+    buttons.forEach((btn, i) => {
+      btn.disabled = true;
+      if (i === q.correctAnswer) {
+        btn.classList.add("bg-green-500", "text-white", "border-green-700");
+      }
+      if (i === selectedIndex && i !== q.correctAnswer) {
+        btn.classList.add("bg-red-500", "text-white", "border-red-700");
+      }
+    });
+
+    if (selectedIndex === q.correctAnswer) {
+      score++;
+      updateScore();
+    }
+    // Show next button with fade-in
+    nextBtn.classList.remove("hidden");
+    nextBtn.classList.add("opacity-0");
+    setTimeout(() => {
+      nextBtn.classList.remove("opacity-0");
+      nextBtn.classList.add("transition-opacity", "duration-500", "opacity-100");
+    }, 10);
+  }
+
+  function updateScore() {
+    scoreEl.textContent = `Score: ${score}`;
+    scoreEl.classList.add("scale-110", "transition-transform", "duration-300");
+    setTimeout(() => {
+      scoreEl.classList.remove("scale-110");
+    }, 300);
+  }
+
+  function endQuiz() {
+    questionEl.textContent = `Quiz finished! Your final score is ${score} / ${questions.length}.`;
+    answersEl.innerHTML = "";
+    nextBtn.classList.add("hidden");
+  }
+
+  function afterLogin() {
+    showQuiz();
+  }
+
+  // On page load, check if token exists
+  window.onload = () => {
+    token = localStorage.getItem("token");
+    if (token) {
+      afterLogin();
+    } else {
+      showAuth();
+    }
+  };
+</script>
+</body>
+</html>
