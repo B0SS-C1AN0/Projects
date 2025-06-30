@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz App - With Question Counter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body, button {
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    #progress-container {
+      background-color: #e5e7eb;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    #progress-bar {
+      height: 100%;
+      background-color: #2563eb;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .dark #progress-container {
+      background-color: #374151;
+    }
+    .dark #progress-bar {
+      background-color: #3b82f6;
+    }
+    @keyframes pulseBtn {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .pulse {
+      animation: pulseBtn 1.2s infinite;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen flex items-center justify-center">
+
+  <div class="bg-white dark:bg-gray-800 p-8 rounded shadow-md w-full max-w-md">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold select-none">Quiz App</h1>
+      <div class="flex items-center space-x-2">
+        <button id="toggle-dark" 
+                class="text-sm bg-gray-300 dark:bg-gray-700 px-3 py-1 rounded transition-colors hover:bg-gray-400 dark:hover:bg-gray-600 select-none"
+                aria-label="Toggle dark mode">
+          Toggle Dark
+        </button>
+        <button id="toggle-sound" 
+                class="text-sm bg-gray-300 dark:bg-gray-700 px-3 py-1 rounded transition-colors hover:bg-gray-400 dark:hover:bg-gray-600 select-none"
+                aria-label="Toggle sound">
+          🔊
+        </button>
+      </div>
+    </div>
+
+    <div id="quiz-container">
+      <div id="timer" class="text-right text-sm text-gray-500 mb-2 select-none">
+        Time left: <span id="time">10</span>s
+      </div>
+
+      <div id="progress-container" aria-label="Question progress">
+        <div id="progress-bar"></div>
+      </div>
+
+      <!-- Question counter -->
+      <div id="question-counter" class="mb-1 text-sm font-semibold text-gray-600 dark:text-gray-300 select-none"></div>
+
+      <div id="question" class="text-lg font-medium mb-4 fade-in" aria-live="polite"></div>
+      <div id="answers" class="space-y-2"></div>
+      <button id="next-btn" class="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 hidden transition-colors">
+        Next Question
+      </button>
+    </div>
+
+    <div id="result" class="text-center text-xl font-semibold mt-4 hidden"></div>
+    <button id="restart-btn" class="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 hidden transition-colors">
+      Restart Quiz
+    </button>
+  </div>
+
+  <script>
+    const questions = [
+      { question: "What is the capital of France?", answers: ["Berlin", "Madrid", "Paris", "Rome"], correct: 2 },
+      { question: "Which planet is known as the Red Planet?", answers: ["Earth", "Mars", "Jupiter", "Saturn"], correct: 1 },
+      { question: "What is 5 + 7?", answers: ["10", "12", "13", "11"], correct: 1 },
+    ];
+
+    let current = 0;
+    let score = 0;
+    let timer = 10;
+    let interval;
+    let soundOn = true;
+    
+
+    //html pairing
+    const questionEl = document.getElementById("question");
+    const answersEl = document.getElementById("answers");
+    const nextBtn = document.getElementById("next-btn");
+    const resultEl = document.getElementById("result");
+    const restartBtn = document.getElementById("restart-btn");
+    const quizContainer = document.getElementById("quiz-container");
+    const timerEl = document.getElementById("time");
+    const darkToggleBtn = document.getElementById("toggle-dark");
+    const soundToggleBtn = document.getElementById("toggle-sound");
+    const progressBar = document.getElementById("progress-bar");
+    const questionCounterEl = document.getElementById("question-counter");
+
+     //getting Highscore
+    let highScore = localStorage.getItem("quizHighScore") || 0;
+     
+    //shuffleArray
+    function shuffleArray(arr) {
+      return arr.map(a => [a, Math.random()]).sort((a,b) => a[1]-b[1]).map(a => a[0]);
+    }
+
+
+    //import program sound
+    const correctSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+    const wrongSound = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+     
+    //activate sound
+    function playSound(sound) {
+      if(soundOn){
+        sound.currentTime = 0;
+        sound.play();
+      }
+    }
+
+    //timer limit and loading questions
+    function loadQuestion() {
+      clearInterval(interval);
+      timer = 10;
+      timerEl.textContent = timer;
+      startTimer();
+
+      const q = questions[current];
+      const shuffledIndexes = shuffleArray([0,1,2,3]);
+      const shuffledAnswers = shuffledIndexes.map(i => q.answers[i]);
+      questionEl.classList.remove("fade-in");
+      void questionEl.offsetWidth; 
+      questionEl.classList.add("fade-in");
+      questionCounterEl.textContent = `Question ${current + 1} of ${questions.length}`;
+      questionEl.textContent = q.question;
+      answersEl.innerHTML = "";
+      shuffledAnswers.forEach(answer => {
+        const realIndex = q.answers.indexOf(answer);
+        const btn = document.createElement("button");
+        btn.textContent = answer;
+        btn.className = "w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 py-2 px-4 rounded text-left transition-colors";
+        btn.onclick = () => handleAnswer(realIndex);
+        answersEl.appendChild(btn);
+      });
+
+      nextBtn.classList.add("hidden");
+      nextBtn.classList.remove("pulse");
+      updateProgressBar();
+    }
+       
+
+
+
+    //display correct answer
+    function handleAnswer(selected) {
+      stopTimer();
+      const correct = questions[current].correct;
+      const buttons = answersEl.querySelectorAll("button");
+
+      buttons.forEach(btn => {
+        btn.disabled = true;
+        const isCorrect = btn.textContent === questions[current].answers[correct];
+        if (isCorrect) btn.classList.add("bg-green-300", "dark:bg-green-600");
+        else if (btn.onclick && btn.textContent === questions[current].answers[selected])
+          btn.classList.add("bg-red-300", "dark:bg-red-600");
+      });
+
+      if(selected === correct){
+        score++;
+        playSound(correctSound);
+      } else {
+        playSound(wrongSound);
+      }
+
+      nextBtn.classList.remove("hidden");
+      nextBtn.classList.add("pulse");
+    }
+
+
+
+
+
+    //timerfunctionality
+    function startTimer() {
+      interval = setInterval(() => {
+        timer--;
+        timerEl.textContent = timer;
+        if(timer <= 0){
+          stopTimer();
+          handleAnswer(-1);
+        }
+      }, 1000);
+    }
+    function stopTimer(){
+      clearInterval(interval);
+    }
+
+
+
+      //nextButton
+    nextBtn.onclick = () => {
+      current++;
+      if(current < questions.length){
+        loadQuestion();
+      } else {
+        showResult();
+      }
+    };
+
+
+
+
+        //update progressBar
+    function updateProgressBar(){
+      const percent = (current / questions.length) * 100;
+      progressBar.style.width = percent + "%";
+    }
+
+
+
+
+
+       //display results
+    function showResult(){
+      quizContainer.classList.add("hidden");
+
+      if(score > highScore){
+        highScore = score;
+        localStorage.setItem("quizHighScore", highScore);
+      }
+
+      resultEl.innerHTML = `
+        You scored <strong>${score}</strong> out of ${questions.length}!<br/>
+        Your highest score: <strong>${highScore}</strong>
+      `;
+      resultEl.classList.remove("hidden");
+      restartBtn.classList.remove("hidden");
+      progressBar.style.width = "100%";
+    }
+
+
+
+
+        //restartBtn
+      restartBtn.onclick = () => {
+      current = 0;
+      score = 0;
+      resultEl.classList.add("hidden");
+      restartBtn.classList.add("hidden");
+      quizContainer.classList.remove("hidden");
+      progressBar.style.width = "0%";
+      loadQuestion();
+    };
+
+
+      //nightmode
+    darkToggleBtn.onclick = () => {
+      document.documentElement.classList.toggle("dark");
+    };
+
+
+
+     //soundToggle
+    soundToggleBtn.onclick = () => {
+      soundOn = !soundOn;
+      soundToggleBtn.textContent = soundOn ? "🔊" : "🔇";
+    };
+     
+
+    //loadQuestion
+    loadQuestion();
+  </script>
+
+</body>
+</html>
