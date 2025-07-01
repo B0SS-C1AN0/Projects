@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <form action="" method="get">
+        <h1>VOTING MACHINE</h1>
+        <label for="">VOTERS_ID</label>
+        <input type="text" name="" id="voter">
+        <hr>
+
+        <label for="">CANDIDATE_ID</label>
+        <input type="text" name="" id="candidate">
+    </form>
+    <script>
+
+var candidate = document.getElementById('candidate');
+var voter = document.getElementById('voter')
+function moreVotes(voter) {
+    if (voter > 2){
+        alert('you are not eligible');
+    }
+    else {
+        alert('you can proceed'); 
+    }
+     
+}
+    </script>
+</body>
+</html>
