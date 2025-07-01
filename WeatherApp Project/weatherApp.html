@@ -1,41 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Weather App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body>
-  
-    <div
-      class="duration-300 font-mono text-white group cursor-pointer 
-      relative overflow-hidden bg-[#DCDFE4] w-28 h-48 dark:bg-[#22272B] 
-      rounded-3xl p-4 hover:w-56 hover:bg-blue-200 hover:dark:bg-[#0C66E4]"
+<body class="bg-gray-100 dark:bg-[#1a1a1a] flex items-center justify-center min-h-screen p-4">
+
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 w-full max-w-sm text-center">
+    <h1 class="text-2xl font-bold mb-4 text-gray-800 dark:text-white">Weather Checker</h1>
+
+    <input
+      type="text"
+      id="cityInput"
+      placeholder="Enter city name"
+      class="w-full p-2 rounded-md border border-gray-300 focus:outline-none focus:ring focus:border-blue-400 mb-4"
+    />
+
+    <button
+      onclick="getWeather()"
+      class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
     >
-      <h3 class="text-xl text-center">Today</h3>
-      <div id="weather_image"></div>
-      <div class="absolute duration-300 -left-32 mt-2 group-hover:left-10">
-        <p class="text-sm" id="weather_name">Heavy Raining</p>
-        <p class="text-sm" id="weather_humidity">50% humidity</p>
-      </div>
+      Get Weather
+    </button>
+
+    <div id="weatherCard" class="mt-6 hidden">
+      <div id="weather_image" class="flex justify-center"></div>
+      <h2 id="weather_city" class="text-xl font-semibold text-gray-700 dark:text-white mt-2"></h2>
+      <p id="weather_name" class="text-gray-600 dark:text-gray-300"></p>
+      <p id="weather_temp" class="text-lg font-bold text-gray-800 dark:text-white"></p>
+      <p id="weather_humidity" class="text-gray-600 dark:text-gray-300"></p>
     </div>
-    
+  </div>
 
-    <script>
-     let weather_name = document.getElementById = "weather_name";
-     let weather_degree = document.getElementById = "weather_degree";
-     let weather_humidity = document.getElementById = "weather_humidity";
-     let weather_image = document.getElementById = "weather_image";
+  <script>
+    const apiKey = "YOUR_API_KEY"; // Replace with your OpenWeatherMap API key
 
+    async function getWeather() {
+      const city = document.getElementById("cityInput").value.trim();
+      if (!city) return alert("Please enter a city name.");
 
+      const url = \`https://api.openweathermap.org/data/2.5/weather?q=\${city}&appid=\${apiKey}&units=metric\`;
 
-    
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("City not found");
+        const data = await res.json();
 
+        const icon = data.weather[0].icon;
+        const description = data.weather[0].description;
+        const temp = Math.round(data.main.temp);
+        const humidity = data.main.humidity;
 
+        document.getElementById("weather_image").innerHTML =
+          \`<img src="https://openweathermap.org/img/wn/\${icon}@2x.png" alt="weather icon">\`;
 
+        document.getElementById("weather_city").textContent = data.name;
+        document.getElementById("weather_name").textContent = description.charAt(0).toUpperCase() + description.slice(1);
+        document.getElementById("weather_temp").textContent = \`\${temp}°C\`;
+        document.getElementById("weather_humidity").textContent = \`\${humidity}% humidity\`;
 
-    </script>
+        document.getElementById("weatherCard").classList.remove("hidden");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    }
+  </script>
 </body>
 </html>
